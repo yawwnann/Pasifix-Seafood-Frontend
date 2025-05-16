@@ -1,26 +1,40 @@
-"use client";
+"use client"; // Jika Anda menggunakan Next.js App Router
 
-import React, { useState, useEffect } from "react";
-import apiClient from "../api/apiClient";
-import { useNavigate, Link } from "react-router-dom";
+import React, {
+  useState,
+  useEffect,
+  // useMemo, // Hapus jika tidak digunakan, atau uncomment jika akan dipakai
+} from "react";
+import apiClient from "../api/apiClient"; // Sesuaikan path
+import { useNavigate, Link, useSearchParams } from "react-router-dom"; // <-- useSearchParams diimpor
 import {
   MagnifyingGlassIcon,
   ShoppingCartIcon,
   ArrowPathIcon,
+  ChevronDownIcon,
+  FunnelIcon,
+  InboxIcon,
+  ExclamationTriangleIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  EyeIcon,
 } from "@heroicons/react/24/solid";
-import { ArrowsUpDownIcon, FunnelIcon } from "@heroicons/react/24/outline";
-import { cn } from "../lib/utils";
+import { ArrowsUpDownIcon } from "@heroicons/react/24/outline";
+import { cn } from "../lib/utils"; // Sesuaikan path
 
+// Helper Function: Format Rupiah
 const formatRupiah = (angka) => {
-  if (angka === null || angka === undefined) return "Rp -";
+  const number = typeof angka === "string" ? parseInt(angka, 10) : angka;
+  if (isNaN(number) || number === null || number === undefined) return "Rp -";
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(angka);
+  }).format(number);
 };
 
+// Custom Hook: useDebounce
 function useDebounce(value, delay) {
   const [debouncedValue, setDebouncedValue] = useState(value);
   useEffect(() => {
@@ -32,120 +46,147 @@ function useDebounce(value, delay) {
   return debouncedValue;
 }
 
+// --- Komponen IkanCard ---
+// (Menggunakan IkanCard yang sudah ada dan disempurnakan sebelumnya)
 function IkanCard({ ikan }) {
   const navigate = useNavigate();
-  const [isAdding, setIsAdding] = useState(false);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [feedback, setFeedback] = useState({ type: "", message: "" });
 
-  const viewDetail = (slug) => navigate(`/ikan/${slug}`);
-  const statusBadgeColor =
-    ikan.status_ketersediaan?.toLowerCase() === "tersedia"
-      ? "bg-green-100 text-green-800"
-      : "bg-red-100 text-red-800";
+  const viewDetail = (e) => {
+    if (e.target.closest("button")) {
+      return;
+    }
+    navigate(`/ikan/${ikan?.slug || ikan?.id}`);
+  };
+
+  const statusKetersediaan = ikan?.status_ketersediaan?.toLowerCase();
+  const isTersedia = statusKetersediaan === "tersedia";
+
+  const statusBadgeColor = isTersedia
+    ? "bg-green-100 text-green-700 ring-1 ring-inset ring-green-200"
+    : "bg-red-100 text-red-700 ring-1 ring-inset ring-red-200";
+
+  const namaIkanDisplay =
+    ikan?.nama_ikan || ikan?.nama || "Nama Ikan Tidak Ada";
+  const gambarUtama = ikan?.gambar_utama;
+  const hargaIkan = ikan?.harga;
+  const kategoriNama = ikan?.kategori_nama || ikan?.kategori?.nama;
 
   const handleAddToCart = async (e) => {
     e.stopPropagation();
-    if (isAdding || ikan.status_ketersediaan?.toLowerCase() !== "tersedia")
-      return;
-    setIsAdding(true);
+    if (isAddingToCart || !isTersedia) return;
+    setIsAddingToCart(true);
     setFeedback({ type: "", message: "" });
-
     try {
       await apiClient.post("/keranjang", { ikan_id: ikan.id, quantity: 1 });
-      setFeedback({ type: "success", message: `${ikan.nama} ditambahkan!` });
-      setTimeout(() => setFeedback({ type: "", message: "" }), 2500);
+      setFeedback({
+        type: "success",
+        message: `${namaIkanDisplay} ditambahkan!`,
+      });
+      window.dispatchEvent(new CustomEvent("cartUpdated"));
+      setTimeout(() => setFeedback({ type: "", message: "" }), 2000);
     } catch (err) {
-      let errorMessage = "Gagal menambah ke keranjang.";
-      if (
-        err.response &&
-        (err.response.status === 401 || err.response.status === 403)
-      ) {
-        errorMessage = "Silakan login untuk menambah item.";
-      } else if (err.response && err.response.data?.message) {
-        errorMessage = err.response.data.message;
+      console.error("Gagal menambah ke keranjang (dari Katalog):", err);
+      let errorMessage = "Gagal menambahkan";
+      if (err.response) {
+        if (err.response.status === 401 || err.response.status === 403) {
+          errorMessage = "Login dulu";
+        } else if (err.response.data?.message) {
+          errorMessage = err.response.data.message.substring(0, 30);
+        }
       }
       setFeedback({ type: "error", message: errorMessage });
-      setTimeout(() => setFeedback({ type: "", message: "" }), 3000);
+      setTimeout(() => setFeedback({ type: "", message: "" }), 2500);
     } finally {
-      setIsAdding(false);
+      setIsAddingToCart(false);
     }
   };
 
   return (
-    <div className="ikan-card group bg-white rounded-lg border border-gray-200 overflow-hidden transition-shadow duration-300 hover:shadow-md flex flex-col h-full relative">
+    <div className="ikan-card group bg-white rounded-xl border border-slate-200/80 overflow-hidden transition-all duration-300 hover:shadow-2xl flex flex-col h-full relative shadow-lg hover:border-blue-300">
       {feedback.message && (
         <div
-          className={`absolute inset-x-0 top-0 z-20 p-2 text-center text-xs font-medium transition-all duration-300 ${
+          className={cn(
+            "absolute inset-x-0 top-0 z-30 p-1.5 text-center text-xs font-semibold transition-all duration-300",
             feedback.type === "success"
               ? "bg-green-500 text-white"
               : "bg-red-500 text-white"
-          }`}
+          )}
         >
           {feedback.message}
         </div>
       )}
-
       <div
-        className="relative overflow-hidden cursor-pointer"
-        onClick={() => viewDetail(ikan.slug)}
+        className="relative overflow-hidden aspect-w-4 aspect-h-3 cursor-pointer"
+        onClick={viewDetail}
       >
         <img
-          src={`https://res.cloudinary.com/dm3icigfr/image/upload/w_400,h_300,c_fill,q_auto,f_auto/${ikan.gambar_utama}`}
-          alt={ikan.nama}
-          className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+          src={
+            gambarUtama
+              ? `https://res.cloudinary.com/dm3icigfr/image/upload/w_400,h_300,c_fill,q_auto,f_auto/${gambarUtama}`
+              : "https://placehold.co/400x300/e2e8f0/94a3b8?text=Gambar"
+          }
+          alt={namaIkanDisplay}
+          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           loading="lazy"
+          onError={(e) => {
+            e.target.onerror = null;
+            e.target.src =
+              "https://placehold.co/400x300/fecaca/991b1b?text=Error";
+          }}
         />
-        <div className="absolute top-2 left-2 z-10 flex flex-col space-y-1">
-          {ikan.kategori && (
-            <span className="bg-blue-500 text-white text-xs font-medium px-2 py-0.5 rounded">
-              {ikan.kategori.nama}
+        <div className="absolute top-2.5 left-2.5 z-10 flex flex-col space-y-1.5">
+          {kategoriNama && (
+            <span className="bg-blue-600 text-white text-[10px] font-medium px-2.5 py-0.5 rounded-full shadow-sm tracking-wide">
+              {kategoriNama}
             </span>
           )}
-          {ikan.status_ketersediaan && (
+          {statusKetersediaan && (
             <span
-              className={`text-xs font-bold px-2 py-0.5 rounded ${statusBadgeColor}`}
+              className={cn(
+                "text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-sm tracking-wide",
+                statusBadgeColor
+              )}
             >
-              {ikan.status_ketersediaan}
+              {statusKetersediaan.charAt(0).toUpperCase() +
+                statusKetersediaan.slice(1)}
             </span>
           )}
         </div>
       </div>
-
-      <div className="p-4 flex flex-col flex-grow">
-        <div
-          onClick={() => viewDetail(ikan.slug)}
-          className="cursor-pointer mb-1"
+      <div className="p-4 sm:p-5 flex flex-col flex-grow">
+        <h3
+          className="text-base lg:text-lg font-semibold text-slate-800 mb-1 line-clamp-2 leading-tight group-hover:text-blue-700 transition-colors cursor-pointer"
+          onClick={viewDetail}
         >
-          <h3 className="text-base font-semibold text-gray-800 line-clamp-2">
-            {ikan.nama}
-          </h3>
-        </div>
-
-        <div className="mt-auto pt-2 flex items-center justify-between">
-          <p
-            className="text-lg font-bold text-blue-700 cursor-pointer"
-            onClick={() => viewDetail(ikan.slug)}
+          {namaIkanDisplay}
+        </h3>
+        <p className="text-lg lg:text-xl font-bold text-blue-600 mb-4">
+          {formatRupiah(hargaIkan)}
+        </p>
+        <div className="mt-auto grid grid-cols-2 gap-2 sm:gap-3">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              viewDetail(e);
+            }}
+            className="w-full bg-slate-100 hover:bg-slate-200/80 text-slate-700 font-semibold py-2.5 px-3 rounded-lg shadow-sm transition-colors duration-150 flex items-center justify-center text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
           >
-            {formatRupiah(ikan.harga)}
-          </p>
+            <EyeIcon className="w-4 h-4 mr-1.5 sm:mr-2" /> Detail
+          </button>
           <button
             onClick={handleAddToCart}
-            disabled={
-              ikan.status_ketersediaan?.toLowerCase() !== "tersedia" || isAdding
-            }
-            className={cn(
-              "p-1.5 sm:p-2 rounded-md shadow-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500 flex-shrink-0",
-              ikan.status_ketersediaan?.toLowerCase() !== "tersedia" || isAdding
-                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                : "bg-blue-600 text-white hover:bg-blue-700"
-            )}
-            title="Tambah ke Keranjang"
+            disabled={!isTersedia || isAddingToCart}
+            title="Beli Sekarang"
+            className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2.5 px-3 rounded-lg shadow-md hover:shadow-lg transition-colors duration-150 flex items-center justify-center text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-slate-300 disabled:cursor-not-allowed"
           >
-            {isAdding ? (
-              <ArrowPathIcon className="w-5 h-5 animate-spin" />
+            {isAddingToCart ? (
+              <ArrowPathIcon className="w-4 h-4 animate-spin" />
             ) : (
-              <ShoppingCartIcon className="w-5 h-5" />
+              <ShoppingCartIcon className="w-4 h-4 mr-1.5 sm:mr-2" />
             )}
+            {isAddingToCart ? "..." : "Beli"}
           </button>
         </div>
       </div>
@@ -153,175 +194,199 @@ function IkanCard({ ikan }) {
   );
 }
 
+// --- Komponen Pagination ---
 function Pagination({ meta, onPageChange }) {
-  if (!meta || meta.last_page <= 1) return null;
+  if (!meta || !meta.links || meta.last_page <= 1) return null;
 
-  const getPageNumber = (url) => {
-    if (!url) return null;
+  const handlePageClick = (pageUrl) => {
+    if (!pageUrl) return;
     try {
-      const parsedUrl = new URL(url);
-      return parsedUrl.searchParams.get("page");
-    } catch {
-      const match = url.match(/[?&]page=(\d+)/);
-      if (match && match[1]) {
-        return match[1];
-      }
-      return null;
+      const url = new URL(pageUrl);
+      const page = url.searchParams.get("page");
+      if (page) onPageChange(page);
+    } catch (e) {
+      const match = pageUrl.match(/[?&]page=(\d+)/);
+      if (match && match[1]) onPageChange(match[1]);
+      else console.error("Invalid URL for pagination:", pageUrl, e);
     }
   };
 
   return (
-    <nav className="flex items-center justify-between border-t border-gray-200 px-4 sm:px-0 mt-10 py-5">
-      <div className="hidden sm:block">
-        <p className="text-sm text-gray-700">
-          Menampilkan <span className="font-medium">{meta.from || 0}</span> -{" "}
-          <span className="font-medium">{meta.to || 0}</span> dari{" "}
-          <span className="font-medium">{meta.total || 0}</span> hasil
-        </p>
+    <nav className="flex flex-col sm:flex-row items-center justify-between border-t border-slate-200 bg-white px-4 py-5 sm:px-6 mt-10 rounded-lg shadow-md">
+      <div className="text-sm text-slate-700 mb-4 sm:mb-0">
+        Menampilkan{" "}
+        <span className="font-semibold text-slate-900">{meta.from || 0}</span> -{" "}
+        <span className="font-semibold text-slate-900">{meta.to || 0}</span>{" "}
+        dari{" "}
+        <span className="font-semibold text-slate-900">{meta.total || 0}</span>{" "}
+        hasil
       </div>
-      <div className="flex flex-1 justify-between sm:justify-end space-x-1">
-        {meta.links?.map((link, index) => {
-          const pageNumber = getPageNumber(link.url);
-          // const isDisabled = !link.url || link.active;
-          const isCurrent = link.active;
-
-          if (
-            link.label.includes("Previous") ||
-            link.label.includes("&laquo;")
-          ) {
-            return (
-              <button
-                key={`prev-${index}`}
-                onClick={() =>
-                  link.url && pageNumber && onPageChange(pageNumber)
-                }
-                disabled={!link.url}
-                className={cn(
-                  "relative inline-flex items-center rounded-md px-3 py-2 text-sm font-semibold ring-1 ring-inset ring-gray-300 focus:z-20 focus:outline-offset-0",
-                  !link.url
-                    ? "text-gray-300 cursor-not-allowed"
-                    : "text-gray-900 hover:bg-gray-50 focus:bg-gray-100"
-                )}
-              >
-                {link.label.includes("&laquo;") ? (
-                  <span dangerouslySetInnerHTML={{ __html: link.label }} />
-                ) : (
-                  "Sebelumnya"
-                )}
-              </button>
+      <div className="isolate inline-flex -space-x-px rounded-md shadow-sm">
+        {meta.links.map((link, index) => {
+          let labelContent = link.label.replace(/&laquo;|&raquo;/g, "").trim();
+          const isPrev =
+            link.label.includes("Previous") || link.label.includes("&laquo;");
+          const isNext =
+            link.label.includes("Next") || link.label.includes("&raquo;");
+          if (isPrev)
+            labelContent = (
+              <ChevronLeftIcon className="h-5 w-5" aria-hidden="true" />
             );
-          } else if (
-            link.label.includes("Next") ||
-            link.label.includes("&raquo;")
-          ) {
-            return (
-              <button
-                key={`next-${index}`}
-                onClick={() =>
-                  link.url && pageNumber && onPageChange(pageNumber)
-                }
-                disabled={!link.url}
-                className={cn(
-                  "relative inline-flex items-center rounded-md px-3 py-2 text-sm font-semibold ring-1 ring-inset ring-gray-300 focus:z-20 focus:outline-offset-0",
-                  !link.url
-                    ? "text-gray-300 cursor-not-allowed"
-                    : "text-gray-900 hover:bg-gray-50 focus:bg-gray-100"
-                )}
-              >
-                {link.label.includes("&raquo;") ? (
-                  <span dangerouslySetInnerHTML={{ __html: link.label }} />
-                ) : (
-                  "Berikutnya"
-                )}
-              </button>
+          if (isNext)
+            labelContent = (
+              <ChevronRightIcon className="h-5 w-5" aria-hidden="true" />
             );
-          } else if (link.label === "...") {
+          if (link.label === "...") {
             return (
               <span
                 key={`ellipsis-${index}`}
-                className="relative hidden items-center px-4 py-2 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 focus:outline-offset-0 md:inline-flex cursor-default"
+                className="relative inline-flex items-center justify-center px-3.5 py-2 text-sm font-semibold text-slate-700 ring-1 ring-inset ring-slate-300 cursor-default"
               >
-                ...
+                {labelContent}
               </span>
             );
-          } else if (pageNumber) {
-            return (
-              <button
-                key={`page-${link.label}-${index}`}
-                onClick={() => !isCurrent && onPageChange(pageNumber)}
-                disabled={isCurrent}
-                aria-current={isCurrent ? "page" : undefined}
-                className={cn(
-                  "relative hidden items-center px-4 py-2 text-sm font-semibold ring-1 ring-inset ring-gray-300 focus:z-20 focus:outline-offset-0 md:inline-flex",
-                  isCurrent
-                    ? "z-10 bg-blue-600 text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 cursor-default"
-                    : "text-gray-900 hover:bg-gray-50 focus:bg-gray-100"
-                )}
-              >
-                {link.label}
-              </button>
-            );
           }
-          return null;
+          return (
+            <button
+              key={index}
+              onClick={() => handlePageClick(link.url)}
+              disabled={!link.url || link.active}
+              aria-current={link.active ? "page" : undefined}
+              className={cn(
+                "relative inline-flex items-center justify-center px-3.5 py-2 text-sm font-semibold ring-1 ring-inset ring-slate-300 focus:z-20 focus:outline-offset-0 transition-colors duration-150",
+                link.active
+                  ? "z-10 bg-blue-600 text-white cursor-default"
+                  : !link.url
+                  ? "text-slate-300 cursor-not-allowed"
+                  : "text-slate-900 hover:bg-slate-100",
+                index === 0 && "rounded-l-md",
+                index === meta.links.length - 1 && "rounded-r-md",
+                (isPrev || isNext) && "px-3"
+              )}
+              aria-label={
+                isPrev
+                  ? "Halaman sebelumnya"
+                  : isNext
+                  ? "Halaman berikutnya"
+                  : `Halaman ${link.label}`
+              }
+            >
+              {labelContent}
+            </button>
+          );
         })}
       </div>
     </nav>
   );
 }
 
+// --- Komponen SkeletonCard ---
+const SkeletonCard = () => (
+  <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden animate-pulse shadow-lg">
+    <div className="aspect-w-4 aspect-h-3 bg-slate-200"></div>
+    <div className="p-4 sm:p-5">
+      <div className="h-5 w-4/5 bg-slate-200 rounded mb-2.5"></div>
+      <div className="h-6 w-2/5 bg-slate-200 rounded mb-4"></div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="h-9 w-full bg-slate-200 rounded-lg"></div>
+        <div className="h-9 w-full bg-slate-200 rounded-lg"></div>
+      </div>
+    </div>
+  </div>
+);
+
+// --- Komponen Utama KatalogPage ---
 function KatalogPage() {
   const [ikanList, setIkanList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [paginationData, setPaginationData] = useState(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedSort, setSelectedSort] = useState("terbaru");
-  const [selectedAvailability, setSelectedAvailability] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams(); // <-- Inisialisasi useSearchParams
+
+  // State untuk filter & sort, diinisialisasi dari URL atau default
+  const [currentPage, setCurrentPage] = useState(
+    parseInt(searchParams.get("page") || "1", 10)
+  );
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
+  const [selectedSort, setSelectedSort] = useState(
+    searchParams.get("sort_by") || "terbaru"
+  );
+  const [selectedAvailability, setSelectedAvailability] = useState(
+    searchParams.get("status_ketersediaan") || ""
+  );
   const debouncedSearch = useDebounce(searchQuery, 500);
 
-  const SkeletonCard = () => (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden animate-pulse">
-      <div className="w-full h-48 bg-gray-200"></div>
-      <div className="p-4">
-        <div className="h-5 w-3/4 bg-gray-200 rounded mb-2"></div>
-        <div className="h-6 w-1/3 bg-gray-200 rounded"></div>
-      </div>
-    </div>
-  );
+  // Sinkronisasi state dari URL (jika user navigasi back/forward browser)
+  useEffect(() => {
+    const pageFromUrl = parseInt(searchParams.get("page") || "1", 10);
+    const searchFromUrl = searchParams.get("q") || "";
+    const sortFromUrl = searchParams.get("sort_by") || "terbaru";
+    const availabilityFromUrl = searchParams.get("status_ketersediaan") || "";
+
+    if (pageFromUrl !== currentPage) setCurrentPage(pageFromUrl);
+    if (searchFromUrl !== searchQuery) setSearchQuery(searchFromUrl);
+    if (sortFromUrl !== selectedSort) setSelectedSort(sortFromUrl);
+    if (availabilityFromUrl !== selectedAvailability)
+      setSelectedAvailability(availabilityFromUrl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const fetchKatalog = async (page, search, sort, availability) => {
     setLoading(true);
     setError(null);
     const params = { page };
     if (search) params.q = search;
-    if (sort) {
-      if (sort === "harga_asc") {
-        params.sort = "harga";
-        params.order = "asc";
-      } else if (sort === "harga_desc") {
-        params.sort = "harga";
-        params.order = "desc";
-      } else {
-        params.sort = "created_at";
-        params.order = "desc";
-      }
+    if (sort === "harga_asc") {
+      params.sort_by = "harga";
+      params.sort_direction = "asc";
+    } else if (sort === "harga_desc") {
+      params.sort_by = "harga";
+      params.sort_direction = "desc";
+    } else {
+      params.sort_by = "created_at";
+      params.sort_direction = "desc";
     }
     if (availability) params.status_ketersediaan = availability;
+
+    // Update URL dengan parameter saat ini
+    const newSearchParams = new URLSearchParams();
+    if (page > 1) newSearchParams.set("page", page.toString());
+    if (search) newSearchParams.set("q", search);
+    if (sort !== "terbaru") newSearchParams.set("sort_by", sort);
+    if (availability) newSearchParams.set("status_ketersediaan", availability);
+    // Hanya panggil setSearchParams jika ada perubahan untuk menghindari loop
+    if (searchParams.toString() !== newSearchParams.toString()) {
+      setSearchParams(newSearchParams, { replace: true });
+    }
+
     try {
       const response = await apiClient.get("/ikan", { params });
-      if (response.data && response.data.data && response.data.meta) {
+      if (
+        response.data &&
+        response.data.data &&
+        response.data.meta &&
+        Array.isArray(response.data.data)
+      ) {
         setIkanList(response.data.data);
         setPaginationData(response.data);
       } else {
         setIkanList([]);
         setPaginationData(null);
-        setError("Format data dari server tidak sesuai.");
+        if (
+          !response.data ||
+          (response.data.data && response.data.data.length === 0)
+        ) {
+          // Data kosong, bukan error
+        } else {
+          setError("Format data dari server tidak sesuai.");
+        }
       }
-    } catch (err_param) {
-      // PERBAIKAN: 'err' diganti menjadi 'err_param' atau '_err' karena 'err' dipakai di atas
-      console.error("Gagal memuat katalog:", err_param); // Gunakan err_param
-      setError("Gagal memuat data ikan. Silakan coba lagi nanti.");
+    } catch (err) {
+      console.error("Gagal memuat katalog:", err);
+      let errMsg = "Gagal memuat data ikan. Silakan coba lagi nanti.";
+      if (err.response?.data?.message) errMsg = err.response.data.message;
+      else if (err.message) errMsg = err.message;
+      setError(errMsg);
       setIkanList([]);
       setPaginationData(null);
     } finally {
@@ -336,125 +401,149 @@ function KatalogPage() {
       selectedSort,
       selectedAvailability
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, debouncedSearch, selectedSort, selectedAvailability]);
 
+  // Reset ke halaman 1 jika filter/pencarian berubah, TAPI bukan halaman itu sendiri
   useEffect(() => {
+    // Hanya reset jika currentPage bukan 1, untuk menghindari trigger fetchKatalog yang tidak perlu jika sudah di halaman 1
     if (currentPage !== 1) {
       setCurrentPage(1);
     }
-  }, [debouncedSearch, selectedSort, selectedAvailability, currentPage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, selectedSort, selectedAvailability]);
 
   const handlePageChange = (page) => {
     const pageNum = parseInt(page, 10);
     if (
       !isNaN(pageNum) &&
       pageNum >= 1 &&
-      pageNum <= (paginationData?.meta?.last_page || 1) &&
-      pageNum !== currentPage
+      pageNum <= (paginationData?.meta?.last_page || 1)
     ) {
-      setCurrentPage(pageNum);
+      setCurrentPage(pageNum); // Ini akan memicu useEffect di atas untuk fetch data
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-        <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 md:mb-8 gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-              Katalog Seafood
-            </h1>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-2 md:gap-3 w-full md:w-auto">
-            <div className="relative flex-grow sm:flex-grow-0 sm:w-48 md:w-56">
-              <input
-                type="text"
-                placeholder="Cari nama ikan..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              />
-              <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-            </div>
-            <div className="relative flex-grow sm:flex-grow-0 sm:w-40 md:w-48">
-              <select
-                value={selectedSort}
-                onChange={(e) => setSelectedSort(e.target.value)}
-                className="appearance-none w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white cursor-pointer"
-                aria-label="Urutkan berdasarkan"
+    <div className="bg-slate-50 min-h-screen font-sans">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10">
+        <div className="text-center mb-10 md:mb-12">
+          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-slate-900">
+            Temukan Seafood Segar Pilihan Anda
+          </h1>
+          <p className="mt-3 md:mt-4 text-base md:text-lg text-slate-600 max-w-2xl mx-auto">
+            Jelajahi berbagai macam ikan, udang, cumi, dan hasil laut lainnya
+            dengan kualitas terbaik, langsung dari sumbernya.
+          </p>
+        </div>
+
+        {/* Filter dan Kontrol Pencarian - PERBAIKAN CSS CONFLICT */}
+        <div className="mb-8 md:mb-10 p-4 sm:p-6 bg-white/80 rounded-xl shadow-lg  top-4 z-20 backdrop-blur-sm">
+          {" "}
+          {/* Menggunakan bg-white/80 */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+            <div className="md:col-span-1">
+              <label
+                htmlFor="search-ikan"
+                className="block text-sm font-medium text-slate-700 mb-1.5"
               >
-                <option value="terbaru">Terbaru</option>
-                <option value="harga_asc">Harga Terendah</option>
-                <option value="harga_desc">Harga Tertinggi</option>
-              </select>
-              <svg
-                className="absolute right-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={2}
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M19.5 8.25l-7.5 7.5-7.5-7.5"
+                <MagnifyingGlassIcon className="inline h-4 w-4 mr-1 text-slate-500" />{" "}
+                Cari Ikan
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  id="search-ikan"
+                  placeholder="Ketik nama ikan..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-3 py-2.5 text-sm border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-slate-50 hover:bg-slate-100 focus:bg-white"
                 />
-              </svg>
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
+              </div>
             </div>
-            <div className="relative flex-grow sm:flex-grow-0 sm:w-40 md:w-48">
-              <select
-                value={selectedAvailability}
-                onChange={(e) => setSelectedAvailability(e.target.value)}
-                className="appearance-none w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white cursor-pointer"
-                aria-label="Filter berdasarkan ketersediaan"
+            <div>
+              <label
+                htmlFor="sort-ikan"
+                className="block text-sm font-medium text-slate-700 mb-1.5"
               >
-                <option value="">Semua Status</option>
-                <option value="tersedia">Tersedia</option>
-                <option value="habis">Habis</option>
-              </select>
-              <svg
-                className="absolute right-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={2}
-                stroke="currentColor"
+                <ArrowsUpDownIcon className="inline h-4 w-4 mr-1 text-slate-500" />{" "}
+                Urutkan
+              </label>
+              <div className="relative">
+                <select
+                  id="sort-ikan"
+                  value={selectedSort}
+                  onChange={(e) => setSelectedSort(e.target.value)}
+                  className="appearance-none w-full pl-3 pr-10 py-2.5 text-sm border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-50 hover:bg-slate-100 focus:bg-white cursor-pointer"
+                >
+                  <option value="terbaru">Paling Baru</option>
+                  <option value="harga_asc">Harga: Terendah</option>
+                  <option value="harga_desc">Harga: Tertinggi</option>
+                </select>
+                <ChevronDownIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+            <div>
+              <label
+                htmlFor="filter-ketersediaan"
+                className="block text-sm font-medium text-slate-700 mb-1.5"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M19.5 8.25l-7.5 7.5-7.5-7.5"
-                />
-              </svg>
+                <FunnelIcon className="inline h-4 w-4 mr-1 text-slate-500" />{" "}
+                Ketersediaan
+              </label>
+              <div className="relative">
+                <select
+                  id="filter-ketersediaan"
+                  value={selectedAvailability}
+                  onChange={(e) => setSelectedAvailability(e.target.value)}
+                  className="appearance-none w-full pl-3 pr-10 py-2.5 text-sm border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-50 hover:bg-slate-100 focus:bg-white cursor-pointer"
+                >
+                  <option value="">Semua Status</option>
+                  <option value="tersedia">Tersedia</option>
+                  <option value="habis">Stok Habis</option>
+                </select>
+                <ChevronDownIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
+              </div>
             </div>
           </div>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-md shadow-md">
-            <p>{error}</p>
+          <div className="mb-6 p-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-md shadow-md flex items-start">
+            <ExclamationTriangleIcon className="h-6 w-6 text-red-600 mr-3 flex-shrink-0" />
+            <div>
+              <h3 className="font-semibold text-red-800">Terjadi Kesalahan</h3>
+              <p className="text-sm">{error}</p>
+            </div>
           </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 md:gap-6">
           {loading
-            ? Array.from({ length: paginationData?.meta?.per_page || 12 }).map(
+            ? Array.from({ length: paginationData?.meta?.per_page || 8 }).map(
                 (_, index) => <SkeletonCard key={`skeleton-${index}`} />
               )
             : ikanList.length > 0
             ? ikanList.map((ikan) => <IkanCard key={ikan.id} ikan={ikan} />)
             : !error && (
-                <p className="col-span-full text-center text-gray-500 py-10">
-                  Tidak ada ikan yang cocok dengan pencarian/filter Anda.
-                </p>
+                <div className="col-span-full text-center py-12 sm:py-16">
+                  <InboxIcon className="mx-auto h-16 w-16 md:h-20 md:w-20 text-slate-300" />
+                  <h3 className="mt-4 text-xl md:text-2xl font-semibold text-slate-800">
+                    Tidak Ada Hasil Ditemukan
+                  </h3>
+                  <p className="mt-2 text-sm md:text-base text-slate-500 max-w-md mx-auto">
+                    Coba ubah kata kunci pencarian atau filter Anda untuk
+                    menemukan produk yang diinginkan.
+                  </p>
+                </div>
               )}
         </div>
 
         {!loading &&
           paginationData?.meta &&
-          paginationData.meta.total > (paginationData.meta.per_page || 0) && (
+          paginationData.meta.last_page > 1 && (
             <Pagination
               meta={paginationData.meta}
               onPageChange={handlePageChange}
