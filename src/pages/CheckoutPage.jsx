@@ -12,11 +12,8 @@ import {
   ArrowPathIcon,
   XCircleIcon,
 } from "@heroicons/react/24/outline";
-import {
-  formatRupiah,
-  CheckoutPageSkeleton,
-} from "../components/CheckoutSkeletons"; // Contoh jika helper & skeleton di file terpisah
-
+import { CheckoutPageSkeleton } from "../components/CheckoutSkeletons"; // Contoh jika helper & skeleton di file terpisah
+import { formatRupiah } from "../components/formatRupiah";
 function CheckoutPage() {
   const navigate = useNavigate();
   const [cartItems, setCartItems] = useState([]);

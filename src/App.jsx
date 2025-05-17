@@ -18,6 +18,7 @@ import KeranjangPage from "./pages/KeranjangPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import PaymentPage from "./pages/PaymentPage";
 import PesananPage from "./pages/PesananPage";
+import PesananDetailPage from "./pages/PesananDetailPage";
 
 import "@fontsource/inter";
 
@@ -50,6 +51,10 @@ function App() {
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/payment/:orderId" element={<PaymentPage />} />
           <Route path="/PesananPage" element={<PesananPage />} />
+          <Route
+            path="/pesanan/detail/:orderId"
+            element={<PesananDetailPage />}
+          />
         </Route>
       </Routes>
     </Router>
