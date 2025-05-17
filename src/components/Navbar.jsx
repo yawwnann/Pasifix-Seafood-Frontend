@@ -148,7 +148,7 @@ function Navbar() {
                 <ShoppingCartIcon className="h-5 w-5 mr-1" />
                 <span>Keranjang</span>
               </NavLink>
-              <NavLink to="/orders" className={getNavLinkClass}>
+              <NavLink to="/PesananPage" className={getNavLinkClass}>
                 <ArchiveBoxIcon className="h-5 w-5 mr-1" />
                 <span>Pesanan</span>
               </NavLink>

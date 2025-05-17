@@ -1,42 +1,58 @@
 // src/pages/LoginPage.jsx
-import React, { useState, useEffect, Fragment } from "react";
+import React, { useState, useEffect, Fragment, useCallback } from "react";
 import apiClient from "../api/apiClient";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 // Pastikan path background image ini benar
 import backgroundImage from "../assets/bg-login.jpg";
 import Icon from "../assets/icon-pasifix.png";
 import { Dialog, Transition } from "@headlessui/react";
-import { CheckCircleIcon } from "@heroicons/react/24/outline";
+import {
+  CheckCircleIcon,
+  EyeIcon,
+  EyeSlashIcon,
+} from "@heroicons/react/24/outline";
 
 function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const [isMounted, setIsMounted] = useState(false);
-  const [agree, setAgree] = useState(false); // State agree dari kode Anda
+  const [agree, setAgree] = useState(false); // State ini akan digunakan untuk persetujuan Syarat & Ketentuan
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  const closeModalAndNavigate = () => {
+  const closeModalAndNavigate = useCallback(() => {
     setIsSuccessModalOpen(false);
     navigate("/dashboard");
-  };
+  }, [navigate]);
 
-  // --- handleSubmit dengan logika penyimpanan token ---
+  useEffect(() => {
+    let timer;
+    if (isSuccessModalOpen) {
+      timer = setTimeout(() => {
+        closeModalAndNavigate();
+      }, 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [isSuccessModalOpen, closeModalAndNavigate]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
 
-    // Validasi tambahan jika perlu (misal: agree)
-    // if (!agree) {
-    //     setError("Anda harus menyetujui syarat untuk login."); // Contoh jika 'agree' diperlukan
-    //     return;
-    // }
+    // Validasi: Pastikan 'agree' dicentang
+    if (!agree) {
+      setError(
+        "Anda harus menyetujui Syarat & Ketentuan serta Kebijakan Privasi untuk melanjutkan."
+      );
+      return;
+    }
 
     setLoading(true);
 
@@ -46,30 +62,23 @@ function LoginPage() {
         password: password,
       });
 
-      console.log("Login successful response:", response.data); // Log response
+      console.log("Login successful response:", response.data);
 
-      // --- Ambil dan Simpan Token ---
       const token = response.data.token;
-      const user = response.data.user; // Opsional
+      const user = response.data.user;
 
       if (token) {
-        // Simpan token ke localStorage
-        localStorage.setItem("authToken", token); // Gunakan key 'authToken'
+        localStorage.setItem("authToken", token);
         console.log("Token saved to localStorage:", token);
 
-        // (Opsional) Simpan data user
         if (user) {
           localStorage.setItem("authUser", JSON.stringify(user));
         }
-
-        // Lanjutkan: Tampilkan modal sukses
         setIsSuccessModalOpen(true);
       } else {
-        // Handle jika token tidak ada di response
         console.error("Token not found in login response!");
         setError("Login berhasil, namun data autentikasi tidak diterima.");
       }
-      // Navigasi dipindah ke closeModalAndNavigate
     } catch (err) {
       console.error("Login error:", err.response || err.message);
       setError(
@@ -80,55 +89,70 @@ function LoginPage() {
       setLoading(false);
     }
   };
-  // --- Akhir handleSubmit ---
+
+  // Tidak ada lagi useEffect untuk "rememberedEmail" karena checkbox sekarang untuk T&C
 
   return (
-    // Latar belakang dari kode Anda: bg-gray-50
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-8 overflow-hidden">
-      {/* Kontainer utama dengan animasi */}
+    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 sm:p-8 overflow-hidden font-sans">
       <div
-        className={`w-full max-w-4xl flex rounded-xl shadow-xl overflow-hidden transition-all duration-700 ease-out transform ${
+        className={`w-full max-w-4xl flex rounded-xl shadow-2xl overflow-hidden transition-all duration-700 ease-out transform ${
           isMounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
         }`}
       >
-        {/* Left side */}
+        {/* Left side - Gambar dan Teks */}
         <div
-          className="w-1/2 p-12 flex-col items-start justify-center text-white hidden sm:flex"
+          className="w-1/2 p-8 sm:p-12 flex-col items-start justify-center text-white hidden md:flex relative"
           style={{
-            backgroundImage: `url(${backgroundImage})`, // Background image dari kode Anda
+            backgroundImage: `linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url(${backgroundImage})`,
             backgroundSize: "cover",
             backgroundPosition: "center",
-            minHeight: "50vh",
           }}
         >
-          <img src={Icon} alt="Icon" className="w-32 h-auto mb-8 " />
-          <h1 className="text-5xl font-bold mb-4 text-left">Halo Pacifix!!</h1>
-          <p className="text-lg mb-8 text-left">
+          <img
+            src={Icon}
+            alt="Pasifix Icon"
+            className="w-28 h-auto mb-6 sm:mb-8"
+          />
+          <h1 className="text-4xl lg:text-5xl font-bold mb-4 text-left leading-tight">
+            Selamat Datang di Pasifix!
+          </h1>
+          <p className="text-base lg:text-lg mb-8 text-left leading-relaxed">
             Berbelanja Ikan Segar Jadi Mudah dengan Kami: Pilihan Terbaik, Harga
             Bersaing, dan Pengiriman Tepat Waktu ke Rumah Anda.
           </p>
+          <div className="absolute bottom-8 left-8 text-xs opacity-75">
+            &copy; {new Date().getFullYear()} Pasifix. All rights reserved.
+          </div>
         </div>
 
-        {/* Right side (Login form) */}
-        <div className="w-full sm:w-1/2 bg-white p-8 sm:p-12 flex flex-col justify-center space-y-6">
-          <h2 className="text-3xl font-bold text-gray-800 text-center">
+        {/* Right side - Form Login */}
+        <div className="w-full md:w-1/2 bg-white p-8 sm:p-12 flex flex-col justify-center space-y-6">
+          <div className="text-center md:hidden mb-6">
+            <img
+              src={Icon}
+              alt="Pasifix Icon"
+              className="w-20 h-auto mx-auto"
+            />
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 text-center">
             Masuk ke Akun Anda
           </h2>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
               <div
-                className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative"
+                className="bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded-md relative shadow-sm"
                 role="alert"
               >
-                <span className="block sm:inline">{error}</span>
+                <strong className="font-bold">Oops!</strong>
+                <span className="block sm:inline ml-1">{error}</span>
               </div>
             )}
 
             <div>
               <label
                 htmlFor="email"
-                className="block text-gray-700 font-semibold mb-2"
+                className="block text-slate-700 font-semibold mb-1.5"
               >
                 Email
               </label>
@@ -138,82 +162,138 @@ function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-6 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Alamat email Anda"
+                className="w-full px-5 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-slate-50 focus:bg-white placeholder-slate-400"
+                placeholder="contoh@email.com"
               />
             </div>
 
             <div>
               <label
                 htmlFor="password"
-                className="block text-gray-700 font-semibold mb-2"
+                className="block text-slate-700 font-semibold mb-1.5"
               >
                 Kata Sandi
               </label>
-              <input
-                type="password"
-                id="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full px-6 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Kata sandi Anda"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  id="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full px-5 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-slate-50 focus:bg-white placeholder-slate-400 pr-12"
+                  placeholder="Masukkan kata sandi"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 px-4 flex items-center text-slate-500 hover:text-blue-600 focus:outline-none"
+                  aria-label={
+                    showPassword
+                      ? "Sembunyikan kata sandi"
+                      : "Tampilkan kata sandi"
+                  }
+                >
+                  {showPassword ? (
+                    <EyeSlashIcon className="h-5 w-5" />
+                  ) : (
+                    <EyeIcon className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
             </div>
 
-            {/* Checkbox 'agree' dari kode Anda */}
-            <div className="flex items-center">
+            {/* Checkbox Persetujuan Syarat & Ketentuan */}
+            <div className="flex items-start">
+              {" "}
+              {/* items-start agar checkbox sejajar dengan awal teks */}
               <input
                 type="checkbox"
-                id="agree"
+                id="agreeLogin" // ID diubah agar unik
                 checked={agree}
                 onChange={(e) => setAgree(e.target.checked)}
-                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                className="mt-1 mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
               />
-              <label htmlFor="agree" className="text-sm text-gray-600">
-                Saya setuju dengan{" "}
-                <a
-                  href="/terms"
-                  target="_blank"
+              <label htmlFor="agreeLogin" className="text-sm text-slate-600">
+                Saya menerima{" "}
+                <Link
+                  to="/terms" // Ganti dengan rute yang benar
+                  target="_blank" // Buka di tab baru
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline"
+                  className="text-blue-600 hover:text-blue-800 hover:underline"
                 >
                   Syarat dan Ketentuan
-                </a>{" "}
+                </Link>{" "}
                 serta{" "}
-                <a
-                  href="/privacy"
-                  target="_blank"
+                <Link
+                  to="/privacy" // Ganti dengan rute yang benar
+                  target="_blank" // Buka di tab baru
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline"
+                  className="text-blue-600 hover:text-blue-800 hover:underline"
                 >
                   Kebijakan Privasi
-                </a>
+                </Link>
                 .
               </label>
             </div>
 
-            {/* Tombol dengan disabled berdasarkan agree dari kode Anda */}
+            {/* Link Lupa Kata Sandi dipindah ke bawah tombol Login untuk alur yang lebih umum */}
+
             <button
               type="submit"
-              disabled={loading || !agree}
-              className={`w-full py-3 text-white font-semibold rounded-lg transition duration-300 ${
-                loading || !agree
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700 focus:ring-blue-500 focus:ring-offset-2"
+              disabled={loading || !agree} // Tombol disabled jika loading ATAU belum setuju
+              className={`w-full py-3 text-white font-semibold rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                loading || !agree // Kondisi disabled diperbarui
+                  ? "bg-slate-400 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700 focus:ring-blue-500"
               }`}
             >
-              {loading ? "Sedang memproses..." : "Masuk"}
+              {loading ? (
+                <div className="flex items-center justify-center">
+                  <svg
+                    className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Memproses...
+                </div>
+              ) : (
+                "Masuk"
+              )}
             </button>
 
-            <p className="text-center text-gray-500 text-sm">
+            <div className="text-sm text-center">
+              <Link
+                to="/lupa-password"
+                className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
+              >
+                Lupa kata sandi?
+              </Link>
+            </div>
+
+            <p className="text-center text-slate-600 text-sm">
               <span>Belum punya akun? </span>
-              <a
-                href="/register"
-                className="text-blue-600 hover:underline font-semibold"
+              <Link
+                to="/register"
+                className="text-blue-600 hover:text-blue-800 hover:underline font-semibold"
               >
                 Daftar di sini
-              </a>
+              </Link>
             </p>
           </form>
         </div>
@@ -223,10 +303,11 @@ function LoginPage() {
       <Transition appear show={isSuccessModalOpen} as={Fragment}>
         <Dialog
           as="div"
-          className="relative z-50" // Pastikan z-index tinggi
-          onClose={closeModalAndNavigate}
+          className="relative z-50"
+          onClose={() => {
+            /* Biarkan kosong */
+          }}
         >
-          {/* Overlay dengan backdrop blur */}
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-300"
@@ -237,12 +318,11 @@ function LoginPage() {
             leaveTo="opacity-0"
           >
             <div
-              className="fixed inset-0 backdrop-blur-sm bg-black/20" // Sedikit bg hitam transparan untuk kontras blur
+              className="fixed inset-0 backdrop-blur-sm bg-black/30"
               aria-hidden="true"
             />
           </Transition.Child>
 
-          {/* Konten Modal */}
           <div className="fixed inset-0 overflow-y-auto">
             <div className="flex min-h-full items-center justify-center p-4 text-center">
               <Transition.Child
@@ -254,31 +334,22 @@ function LoginPage() {
                 leaveFrom="opacity-100 scale-100"
                 leaveTo="opacity-0 scale-95"
               >
-                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 sm:p-8 text-left align-middle shadow-xl transition-all">
                   <Dialog.Title
                     as="h3"
-                    className="text-lg font-medium leading-6 text-gray-900 text-center"
+                    className="text-xl sm:text-2xl font-semibold leading-6 text-slate-900 text-center"
                   >
                     Login Berhasil!
                   </Dialog.Title>
-                  <div className="mt-4 flex flex-col items-center">
+                  <div className="mt-5 flex flex-col items-center">
                     <CheckCircleIcon
-                      className="h-16 w-16 text-green-500 mb-4"
+                      className="h-20 w-20 sm:h-24 sm:w-24 text-blue-500 mb-5"
                       aria-hidden="true"
                     />
-                    <p className="text-sm text-gray-600 text-center">
-                      Selamat datang kembali! Anda akan diarahkan ke halaman
-                      dashboard.
+                    <p className="text-sm sm:text-base text-slate-600 text-center leading-relaxed">
+                      Selamat datang kembali! Anda akan segera diarahkan ke
+                      halaman dashboard.
                     </p>
-                  </div>
-                  <div className="mt-6 flex justify-center">
-                    <button
-                      type="button"
-                      className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                      onClick={closeModalAndNavigate}
-                    >
-                      OK
-                    </button>
                   </div>
                 </Dialog.Panel>
               </Transition.Child>
@@ -286,7 +357,6 @@ function LoginPage() {
           </div>
         </Dialog>
       </Transition>
-      {/* === Akhir Modal Sukses Login === */}
     </div>
   );
 }
