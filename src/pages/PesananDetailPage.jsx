@@ -20,11 +20,39 @@ import {
   PencilIcon,
   XCircleIcon,
   PhotoIcon,
+  CubeTransparentIcon, // Untuk Nomor Resi
+  CheckBadgeIcon, // Untuk tombol Tandai Selesai
 } from "@heroicons/react/24/outline";
 import { CheckCircleIcon as SolidCheckCircleIcon } from "@heroicons/react/24/solid";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 
+const getStatusPembayaranColor = (status) => {
+  // Pastikan nilai status dari API Anda konsisten dengan case di sini
+  const lowerStatus = status?.toLowerCase();
+  switch (lowerStatus) {
+    case "pending":
+    case "menunggu_pembayaran": // Alias jika ada
+      return "bg-yellow-100 text-yellow-700 ring-1 ring-inset ring-yellow-200";
+    case "paid":
+    case "settlement":
+    case "capture":
+    case "lunas": // Jika status pembayaran juga bisa "lunas"
+      return "bg-green-100 text-green-700 ring-1 ring-inset ring-green-200";
+    case "challenge":
+      return "bg-orange-100 text-orange-700 ring-1 ring-inset ring-orange-200";
+    case "failure":
+    case "failed":
+    case "deny":
+    case "cancel":
+    case "gagal":
+    case "expire":
+    case "expired":
+      return "bg-red-100 text-red-700 ring-1 ring-inset ring-red-200";
+    default:
+      return "bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-200";
+  }
+};
 const formatRupiah = (angka) => {
   if (angka === null || angka === undefined || isNaN(Number(angka)))
     return "Rp 0";
@@ -226,6 +254,8 @@ function PesananDetailPage() {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isMarkingAsDone, setIsMarkingAsDone] = useState(false);
+  const [markAsDoneError, setMarkAsDoneError] = useState(null);
 
   const fetchOrderDetail = useCallback(async () => {
     if (!orderId) {
@@ -235,18 +265,14 @@ function PesananDetailPage() {
     }
     setLoading(true);
     setError(null);
+    setMarkAsDoneError(null); // Reset error aksi sebelumnya
     try {
       const response = await apiClient.get(`/pesanan/${orderId}`);
       if (response.data?.data) {
-        console.log(
-          "Data Detail Pesanan Diterima dari API:",
-          response.data.data
-        ); // Log data mentah
         setOrder(response.data.data);
       } else {
         setError("Gagal memuat detail pesanan: Format data tidak valid.");
         setOrder(null);
-        console.warn("Format data detail pesanan tidak sesuai:", response.data);
       }
     } catch (err) {
       console.error(`Gagal memuat detail pesanan ID ${orderId}:`, err);
@@ -286,16 +312,50 @@ function PesananDetailPage() {
   }, [fetchOrderDetail]);
 
   const handleImageError = (e) => {
-    // Mencegah loop jika placeholder itu sendiri gagal dimuat
     if (!e.target.src.endsWith("/placeholder-image.png")) {
-      e.target.onerror = null; // Hapus handler untuk mencegah loop tak terbatas
-      e.target.src = "/placeholder-image.png"; // Ganti dengan path placeholder Anda yang valid
-    } else {
-      // Jika placeholder sudah dicoba dan masih error, hentikan saja.
       e.target.onerror = null;
-      console.error("Placeholder image juga gagal dimuat:", e.target.alt);
-      // Anda bisa menyembunyikan gambar atau menampilkan ikon gambar rusak standar browser
-      // e.target.style.display = 'none';
+      e.target.src = "/placeholder-image.png";
+    } else {
+      e.target.onerror = null;
+    }
+  };
+
+  const handleMarkAsDone = async () => {
+    if (!order || order.status?.toLowerCase() !== "dikirim") {
+      alert(
+        "Pesanan ini tidak dalam status 'Dikirim' atau data pesanan tidak ada."
+      );
+      return;
+    }
+    if (
+      !window.confirm(
+        "Apakah Anda yakin ingin menandai pesanan ini sudah Anda terima / selesai?"
+      )
+    ) {
+      return;
+    }
+    setIsMarkingAsDone(true);
+    setMarkAsDoneError(null);
+    try {
+      const response = await apiClient.put(
+        `/pesanan/${order.id}/tandai-selesai`
+      );
+      if (response.data && response.data.data) {
+        setOrder(response.data.data);
+        alert("Status pesanan berhasil diperbarui menjadi Selesai!");
+      } else {
+        throw new Error(
+          response.data?.message || "Gagal memperbarui status pesanan."
+        );
+      }
+    } catch (err) {
+      const errMsg =
+        err.response?.data?.message || err.message || "Terjadi kesalahan.";
+      setMarkAsDoneError(errMsg);
+      alert(`Error: ${errMsg}`);
+      console.error("Gagal menandai pesanan selesai:", err);
+    } finally {
+      setIsMarkingAsDone(false);
     }
   };
 
@@ -303,7 +363,7 @@ function PesananDetailPage() {
     <div className="bg-slate-100 min-h-screen py-8 sm:py-12">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl">
         <Link
-          to="/PesananPage"
+          to="/pesanan"
           className="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-800 mb-6 group"
         >
           <ArrowLeftIcon className="h-4 w-4 mr-1.5 transition-transform duration-150 group-hover:-translate-x-1" />
@@ -339,13 +399,7 @@ function PesananDetailPage() {
                     Detail Pesanan
                   </h1>
                   <p className="text-sm text-gray-500 mt-1">
-                    ID Internal: <span className="font-mono">#{order.id}</span>
-                    {order.midtrans_order_id && (
-                      <span className="font-mono">
-                        {" "}
-                        / Midtrans: {order.midtrans_order_id}
-                      </span>
-                    )}
+                    ID Pesanan: <span className="font-mono">#{order.id}</span>
                   </p>
                 </div>
                 <div className="mt-3 sm:mt-0">
@@ -356,31 +410,37 @@ function PesananDetailPage() {
                 <DetailItem
                   label="Tanggal Pesan"
                   value={format(
-                    new Date(order.tanggal_pesan || order.created_at),
+                    new Date(
+                      order.tanggal_pesan || order.created_at || Date.now()
+                    ),
                     "EEEE, dd MMMM yyyy, HH:mm",
                     { locale: id }
                   )}
                   icon={CalendarDaysIcon}
                   className="sm:col-span-2"
                 />
-                <DetailItem
-                  label="Status Pembayaran"
-                  value={
-                    <StatusPembayaranDisplay status={order.status_pembayaran} />
-                  }
-                  icon={CreditCardIcon}
-                />
+                <span
+                  className={`px-3 w-20 text-center h-10 py-1 inline-flex items-center justify-center text-xs leading-5 font-semibold rounded-full ${getStatusPembayaranColor(
+                    order.status_pembayaran // Pastikan field ini ada dari API
+                  )}`}
+                >
+                  {order.status_pembayaran
+                    ? order.status_pembayaran.charAt(0).toUpperCase() +
+                      order.status_pembayaran.slice(1).toLowerCase()
+                    : "N/A"}
+                </span>
+
                 <DetailItem
                   label="Metode Pembayaran"
                   value={order.metode_pembayaran || "-"}
                   icon={TagIcon}
                 />
-                {order.midtrans_transaction_id && (
+                {order.nomor_resi && (
                   <DetailItem
-                    label="Transaction ID (Midtrans)"
-                    value={order.midtrans_transaction_id}
-                    icon={TagIcon}
-                    className="sm:col-span-2 font-mono text-xs"
+                    label="Nomor Resi Pengiriman"
+                    value={order.nomor_resi}
+                    icon={CubeTransparentIcon}
+                    className="sm:col-span-2"
                   />
                 )}
               </dl>
@@ -403,7 +463,7 @@ function PesananDetailPage() {
                     alt={`Bukti Pembayaran Pesanan ${order.id}`}
                     className="w-full h-auto max-h-96 rounded-md border border-gray-300 shadow-sm object-contain bg-gray-50"
                     style={{ display: "block", margin: "0 auto" }}
-                    onError={handleImageError} // Tambahkan error handler untuk bukti pembayaran juga
+                    onError={handleImageError}
                   />
                 </a>
                 <p className="text-center mt-3">
@@ -474,13 +534,9 @@ function PesananDetailPage() {
               <ul role="list" className="divide-y divide-slate-200">
                 {order.items && order.items.length > 0 ? (
                   order.items.map((item, index) => {
-                    // Tambahkan console.log di sini untuk memeriksa item.gambar_utama
-                    // console.log(`Item ${index} (${item.nama_ikan}): gambar_utama = `, item.gambar_utama);
-
                     const imageUrl = item.gambar_utama
                       ? `https://res.cloudinary.com/dm3icigfr/image/upload/w_100,h_100,c_fill,q_auto,f_auto/${item.gambar_utama}`
                       : "/placeholder-image.png";
-
                     return (
                       <li
                         key={item.ikan_id || item.id || `item-idx-${index}`}
@@ -491,7 +547,7 @@ function PesananDetailPage() {
                             src={imageUrl}
                             alt={item.nama_ikan || "Gambar Ikan"}
                             className="h-full w-full rounded-lg object-cover bg-gray-100 shadow-sm"
-                            onError={handleImageError} // Menggunakan handler yang sudah didefinisikan
+                            onError={handleImageError}
                           />
                         </div>
                         <div className="ml-0 sm:ml-6 mt-4 sm:mt-0 flex flex-1 flex-col">
@@ -548,6 +604,26 @@ function PesananDetailPage() {
                 </div>
               </div>
             </div>
+
+            {order.status?.toLowerCase() === "dikirim" && (
+              <div className="mt-8 text-center">
+                <button
+                  onClick={handleMarkAsDone}
+                  disabled={isMarkingAsDone}
+                  className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                >
+                  {isMarkingAsDone ? (
+                    <ArrowPathIcon className="animate-spin h-5 w-5 mr-2" />
+                  ) : (
+                    <CheckBadgeIcon className="h-5 w-5 mr-2" />
+                  )}
+                  Pesanan Sudah Diterima / Selesai
+                </button>
+                {markAsDoneError && (
+                  <p className="mt-2 text-sm text-red-600">{markAsDoneError}</p>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
