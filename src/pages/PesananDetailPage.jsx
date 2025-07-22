@@ -363,7 +363,7 @@ function PesananDetailPage() {
     <div className="bg-slate-100 min-h-screen py-8 sm:py-12">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl">
         <Link
-          to="/pesanan"
+          to="/PesananPage"
           className="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-800 mb-6 group"
         >
           <ArrowLeftIcon className="h-4 w-4 mr-1.5 transition-transform duration-150 group-hover:-translate-x-1" />

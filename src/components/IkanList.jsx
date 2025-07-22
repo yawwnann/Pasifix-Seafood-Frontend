@@ -6,7 +6,7 @@ function IkanList() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const apiUrl = "http://localhost:8000/api/ikan?page=3";
+  const apiUrl = "http://localhost:9000/api/ikan?page=3";
 
   useEffect(() => {
     const fetchData = async () => {
