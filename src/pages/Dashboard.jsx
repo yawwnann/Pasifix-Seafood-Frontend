@@ -224,12 +224,14 @@ function Dashboard() {
             <div className="hero-buttons flex flex-col sm:flex-row justify-center md:justify-start space-y-4 sm:space-y-0 sm:space-x-4">
               <button
                 type="button"
+                onClick={() => navigate('/keranjang')}
                 className="px-6 py-3 bg-white text-blue-700 font-semibold rounded-lg shadow-md hover:bg-gray-200 transition duration-300 ease-in-out transform hover:scale-105"
               >
                 Lihat Pesanan
               </button>
               <button
                 type="button"
+                onClick={() => navigate('/katalog')}
                 className="px-6 py-3 bg-transparent text-white font-semibold rounded-lg shadow-md border-2 border-white hover:bg-white hover:text-blue-700 transition duration-300 ease-in-out transform hover:scale-105"
               >
                 Jelajahi Produk

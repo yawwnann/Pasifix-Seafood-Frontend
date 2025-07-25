@@ -415,7 +415,11 @@ function DetailIkanPage() {
                   </span>
                 </div>
                 <div className="text-gray-700 leading-relaxed mb-8 prose prose-sm sm:prose-base max-w-none">
-                  <p>{ikanDetail.deskripsi || "Deskripsi tidak tersedia."}</p>
+                  {ikanDetail.deskripsi ? (
+                    <div dangerouslySetInnerHTML={{ __html: ikanDetail.deskripsi }} />
+                  ) : (
+                    <p>Deskripsi tidak tersedia.</p>
+                  )}
                 </div>
 
                 {/* Aksi (Kuantitas & Tambah Keranjang) */}

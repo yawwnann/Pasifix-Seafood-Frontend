@@ -1,6 +1,6 @@
 "use client"; // Jika Anda menggunakan Next.js App Router
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import apiClient from "../api/apiClient"; // Sesuaikan path ke apiClient Anda
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -331,26 +331,21 @@ function KatalogPage() {
   );
   const debouncedSearch = useDebounce(searchQuery, 550);
 
+  // Initialize state from URL only once on mount
   useEffect(() => {
     const pageFromUrl = parseInt(searchParams.get("page") || "1", 10);
     const searchFromUrl = searchParams.get("q") || "";
     const sortFromUrl = searchParams.get("sort_by") || "terbaru";
     const availabilityFromUrl = searchParams.get("status_ketersediaan") || "";
 
-    if (pageFromUrl !== currentPage) setCurrentPage(pageFromUrl);
-    if (searchFromUrl !== searchQuery) setSearchQuery(searchFromUrl);
-    if (sortFromUrl !== selectedSort) setSelectedSort(sortFromUrl);
-    if (availabilityFromUrl !== selectedAvailability)
-      setSelectedAvailability(availabilityFromUrl);
-  }, [
-    searchParams,
-    currentPage,
-    searchQuery,
-    selectedSort,
-    selectedAvailability,
-  ]);
+    setCurrentPage(pageFromUrl);
+    setSearchQuery(searchFromUrl);
+    setSelectedSort(sortFromUrl);
+    setSelectedAvailability(availabilityFromUrl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount to prevent infinite loops
 
-  const fetchKatalog = async (page, search, sort, availability) => {
+  const fetchKatalog = useCallback(async (page, search, sort, availability) => {
     setLoading(true);
     setError(null);
     const params = { page, per_page: 12 };
@@ -415,7 +410,7 @@ function KatalogPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     fetchKatalog(
@@ -424,7 +419,7 @@ function KatalogPage() {
       selectedSort,
       selectedAvailability
     );
-  }, [currentPage, debouncedSearch, selectedSort, selectedAvailability]);
+  }, [currentPage, debouncedSearch, selectedSort, selectedAvailability, fetchKatalog]);
 
   const handleFilterOrSortChange = (type, value) => {
     let shouldResetPage = false;
@@ -498,14 +493,33 @@ function KatalogPage() {
                 <input
                   type="text"
                   id="search-ikan"
-                  placeholder="Nama ikan, udang, cumi..."
+                  placeholder="Cari nama ikan, kategori, atau deskripsi..."
                   value={searchQuery}
                   onChange={(e) =>
                     handleFilterOrSortChange("search", e.target.value)
                   }
-                  className="w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm border border-slate-300/80 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white/70 hover:border-slate-400 focus:bg-white placeholder-slate-400/90"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      // Trigger immediate search on Enter
+                      fetchKatalog(1, searchQuery, selectedSort, selectedAvailability);
+                    }
+                  }}
+                  className="w-full pl-9 pr-10 py-2.5 text-xs sm:text-sm border border-slate-300/80 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white/70 hover:border-slate-400 focus:bg-white placeholder-slate-400/90"
                 />
                 <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => handleFilterOrSortChange("search", "")}
+                    className="absolute right-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 hover:text-slate-600 transition-colors"
+                    title="Hapus pencarian"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
               </div>
             </div>
             <div>
